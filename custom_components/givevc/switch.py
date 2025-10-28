@@ -31,10 +31,11 @@ class ModbusSwitchEntity(SwitchEntity):
     @property
     def device_info(self):
         return {
-            "identifiers": {(DOMAIN, f"givevc_{self.seial}")},
+            "identifiers": {(DOMAIN, f"givevc_{self.serial}")},
             "name": "GivEVC",
             "manufacturer": "GivEnergy",
             "model": "GivEVC",
+            "serial_number": self.serial,
     }
 
     @property

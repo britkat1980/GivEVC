@@ -1,29 +1,196 @@
 [
   {
+  "name": "Charging State",
+  "type": "sensor",
+  "register": 0,
+  "device_class": "enum",
+    "lookup": {
+      "0": "Unknown",
+      "1": "idle",
+      "2": "Connected",
+      "3": "Startup",
+      "4": "charging",
+      "5": "Startup failed",
+      "6": "End of charging",
+      "7": "System failure",
+      "8": "Scheduled",
+      "9": "System upgrade",
+      "10": "Power-on status"
+    }
+  },
+  {
+  "name": "Error Code",
+  "type": "sensor",
+  "device_class": "enum",
+  "register": 4,
+    "lookup": {
+        "0":"Clear",
+        "11":"CP voltage is abnormal",
+        "12":"Emergency stop",
+        "13":"Undervoltage",
+        "14":"Overvoltage",
+        "15":"Over temperature",
+        "16":"Meter failure",
+        "17":"Leakage fault",
+        "18":"Output short circuit",
+        "19":"Overcurrent",
+        "21":"Vehicle response timeout",
+        "22":"No diode at the vehicle end",
+        "23":"Relay sticking",
+        "24":"Leakage current device failure",
+        "25":"Ground fault",
+        "26":"Failed to start process"
+    }
+  },
+  {
     "name": "Current L1",
     "type": "sensor",
-    "register": "6",
+    "register": 6,
+    "float": false,
+    "scale": 0.1,
+    "unit": "A",
+    "device_class": "current"
+  },
+    {
+    "name": "Current L2",
+    "type": "sensor",
+    "register": 8,
+    "float": false,
+    "scale": 0.1,
+    "unit": "A",
+    "device_class": "current"
+  },
+    {
+    "name": "Current L3",
+    "type": "sensor",
+    "register": 10,
     "float": false,
     "scale": 0.1,
     "unit": "A",
     "device_class": "current"
   },
   {
-    "name": "Charging State",
+    "name": "Active Power",
+    "type": "sensor",
+    "register": 12,
+    "byte_order": "ABCD",
+    "float": false,
+    "scale": 1,
+    "unit": "W",
+    "device_class": "power"
+  },
+    {
+    "name": "Active Power L1",
+    "type": "sensor",
+    "register": 16,
+    "byte_order": "ABCD",
+    "float": false,
+    "scale": 1,
+    "unit": "W",
+    "device_class": "power"
+  },
+    {
+    "name": "Active Power L2",
+    "type": "sensor",
+    "register": 20,
+    "byte_order": "ABCD",
+    "float": false,
+    "scale": 1,
+    "unit": "W",
+    "device_class": "power"
+  },
+    {
+    "name": "Active Power L3",
+    "type": "sensor",
+    "register": 24,
+    "byte_order": "ABCD",
+    "float": false,
+    "scale": 1,
+    "unit": "W",
+    "device_class": "power"
+  },
+  {
+    "name": "Meter Energy",
+    "type": "sensor",
+    "register": 29,
+    "float": false,
+    "scale": 0.1,
+    "unit": "kWh",
+    "device_class": "energy"
+  },
+    {
+    "name": "Session Energy",
+    "type": "sensor",
+    "register": 72,
+    "float": false,
+    "scale": 0.1,
+    "unit": "kWh",
+    "device_class": "energy"
+  },
+  {
+  "type": "timestamp",
+  "name": "Start time",
+  "register": 74,
+  "register_minute": 75,
+  "register_second": 76,
+  "device_class": "timestamp"
+  },
+  {
+  "type": "timestamp",
+  "name": "End time",
+  "register": 82,
+  "register_minute": 83,
+  "register_second": 84,
+  "device_class": "timestamp"
+  },
+
+  {
+    "name": "Charge Control",
     "type": "select",
-    "register": "0",
+    "register": 95,
     "lookup": {
-      "0": "Unknown state",
-      "1": "idle state",
-      "2": "connection status",
-      "3": "Startup state",
-      "4": "charging status",
-      "5": "Startup failed",
-      "6": "End of charging",
-      "7": "System failure",
-      "8": "Scheduled state",
-      "9": "System upgrade",
-      "10": "Power-on status"
-    }
+      "1":"Start",
+      "2":"Stop"
+      }
+  },
+  {
+    "name": "Charge Limit",
+    "type": "number",
+    "register": 91,
+    "float": false,
+    "scale": 0.1,
+    "unit": "A",
+    "device_class": "current",
+    "min": 6,
+    "max": 32,
+    "step": 0.1,
+    "mode": "slider"
+  },
+ {
+    "name": "Voltage L1",
+    "type": "sensor",
+    "register": 109,
+    "float": false,
+    "scale": 0.1,
+    "unit": "V",
+    "device_class": "voltage"
+  },
+{
+    "name": "Voltage L2",
+    "type": "sensor",
+    "register": 111,
+    "float": false,
+    "scale": 0.1,
+    "unit": "V",
+    "device_class": "voltage"
+  },
+  {
+    "name": "Voltage L3",
+    "type": "sensor",
+    "register": 113,
+    "float": false,
+    "scale": 0.1,
+    "unit": "V",
+    "device_class": "voltage"
   }
 ]

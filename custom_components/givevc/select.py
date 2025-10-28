@@ -1,5 +1,4 @@
-import json
-import os
+import logging
 
 from homeassistant.components.select import SelectEntity
 from homeassistant.config_entries import ConfigEntry
@@ -7,15 +6,20 @@ from homeassistant.core import HomeAssistant
 
 from .const import DOMAIN
 
+_LOGGER = logging.getLogger(__name__)
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
+
+async def async_setup_entry(
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities
+):
     coordinator = hass.data[DOMAIN][entry.entry_id]
     serial = entry.data.get("serial")
     register_map = entry.data.get("register_map", [])
 
     entities = [
         ModbusSelectEntity(coordinator, config, serial)
-        for config in register_map if config["type"] == "select"
+        for config in register_map
+        if config["type"] == "select"
     ]
     async_add_entities(entities)
 
@@ -23,18 +27,30 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 class ModbusSelectEntity(SelectEntity):
     def __init__(self, coordinator, config, serial):
         self.coordinator = coordinator
-        self.serial= serial
+        self.serial = serial
         self._attr_name = config["name"]
         self._register = config["register"]
-        self._mode = config.get("mode", "holding")
 
-        # Load lookup table from inline or external file
-        if "lookup_file" in config:
-            lookup_path = os.path.join(os.path.dirname(__file__), config["lookup_file"])
-            with open(lookup_path) as f:
-                self._lookup = {int(k): v for k, v in json.load(f).items()}
-        else:
-            self._lookup = {int(k): v for k, v in config.get("lookup", {}).items()}
+
+        # Prefer lookup provided in the config (populated at setup).
+        # Lookup files should be resolved at startup (async_setup_entry) and
+        # included in the `register_map` entries so platforms don't perform
+        # file I/O at runtime.
+        raw_lookup = config.get("lookup")
+        if not raw_lookup:
+            _LOGGER.debug(
+                "No lookup provided for select '%s' (register %s); defaulting to empty mapping",
+                self._attr_name,
+                self._register,
+            )
+            raw_lookup = {}
+
+        # Ensure keys are ints and values preserved
+        try:
+            self._lookup = {int(k): v for k, v in raw_lookup.items()}
+        except Exception as err:  # pragma: no cover - defensive
+            _LOGGER.exception("Failed to parse lookup for %s: %s", self._attr_name, err)
+            self._lookup = {}
 
         self._reverse_lookup = {v: k for k, v in self._lookup.items()}
         self._options = list(self._reverse_lookup.keys())
@@ -47,7 +63,8 @@ class ModbusSelectEntity(SelectEntity):
             "name": "GivEVC",
             "manufacturer": "GivEnergy",
             "model": "GivEVC",
-    }
+            "serial_number": self.serial,
+        }
 
     @property
     def unique_id(self):
@@ -66,16 +83,16 @@ class ModbusSelectEntity(SelectEntity):
             return None
 
     async def async_select_option(self, option: str):
-        value = self._reverse_lookup.get(option)
-        if value is None:
-            return
+        try:
+            value = self._reverse_lookup.get(option)
+            if value is None:
+                return
 
-        client = self.coordinator.client
-        unit_id = self.coordinator.unit_id
+            client = self.coordinator.client
 
-        if self._mode == "coil":
-            await self.hass.async_add_executor_job(client.write_coil, self._register, value, unit_id)
-        else:
-            await self.hass.async_add_executor_job(client.write_register, self._register, value, unit_id)
-
-        self._current_option = option
+            await self.hass.async_add_executor_job(
+                    lambda: client.write_registers(self._register, [value])
+                )
+            self._current_option = option
+        except Exception as err:  # pragma: no cover - defensive
+            _LOGGER.exception("Failed to set option '%s' for %s: %s", option, self._attr_name, err)

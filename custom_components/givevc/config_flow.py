@@ -4,8 +4,6 @@ import socket
 
 from pymodbus.client import ModbusTcpClient
 import voluptuous as vol
-import json
-from pathlib import Path
 
 from homeassistant import config_entries
 from homeassistant.helpers import aiohttp_client
@@ -87,37 +85,10 @@ class GivEVCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             get_modbus_serial, user_input["host"]
         )
 
-        # Prepare entry data and include register map loaded from file
-        data = dict(user_input)
-        data["serial"] = serial
-
-        try:
-            reg_file = Path(__file__).parent / "register_map.json"
-            with reg_file.open() as f:
-                reg_map = json.load(f)
-        except Exception:  # pragma: no cover - best effort
-            _LOGGER.debug(
-                "No register_map.json found or failed to load; continuing without map"
-            )
-            reg_map = []
-
-        # Normalize register values (strings to ints where appropriate)
-        parsed_map = []
-        for cfg in reg_map:
-            cfg_copy = dict(cfg)
-            reg_raw = cfg_copy.get("register")
-            try:
-                if isinstance(reg_raw, str):
-                    cfg_copy["register"] = int(reg_raw, 0)
-            except Exception:
-                _LOGGER.debug("Invalid register value in map: %s", reg_raw)
-            parsed_map.append(cfg_copy)
-
-        data["register_map"] = parsed_map
-
+        user_input["serial"] = serial
         return self.async_create_entry(
             title=f"GivEVC ({serial})" if serial else f"GivEVC @ {user_input['host']}",
-            data=data,
+            data=user_input,
         )
 
     async def async_step_manual(self, user_input=None):
@@ -139,36 +110,10 @@ class GivEVCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         serial = await self.hass.async_add_executor_job(
             get_modbus_serial, user_input["host"]
         )
-        # Prepare entry data and include register map loaded from file
-        data = dict(user_input)
-        data["serial"] = serial
-
-        try:
-            reg_file = Path(__file__).parent / "register_map.json"
-            with reg_file.open() as f:
-                reg_map = json.load(f)
-        except Exception:  # pragma: no cover - best effort
-            _LOGGER.debug(
-                "No register_map.json found or failed to load; continuing without map"
-            )
-            reg_map = []
-
-        parsed_map = []
-        for cfg in reg_map:
-            cfg_copy = dict(cfg)
-            reg_raw = cfg_copy.get("register")
-            try:
-                if isinstance(reg_raw, str):
-                    cfg_copy["register"] = int(reg_raw, 0)
-            except Exception:
-                _LOGGER.debug("Invalid register value in map: %s", reg_raw)
-            parsed_map.append(cfg_copy)
-
-        data["register_map"] = parsed_map
-
+        user_input["serial"] = serial
         return self.async_create_entry(
             title=f"GivEVC ({serial})" if serial else f"GivEVC ({user_input['host']})",
-            data=data,
+            data=user_input,
         )
 
     async def _scan_subnet_for_modbus(self):
@@ -182,7 +127,21 @@ class GivEVCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             network = ipaddress.ip_network(f"{ip}/{mask}", strict=False)
         except Exception as e:
             _LOGGER.warning(f"Supervisor network info failed: {e}")
-            return []
+
+        # Get subnet from docker if not addon
+        if network == None:
+            try:
+                import socket
+                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                s.settimeout(0)
+                # doesn't even have to be reachable
+                s.connect(('10.254.254.254', 1))
+                ip = s.getsockname()[0]
+                s.close()
+                network = ipaddress.ip_network(f"{ip}/24", strict=False)
+            except Exception as e:
+                _LOGGER.warning(f"Docker network info failed: {e}")
+                return []
 
         found = []
         for host in network.hosts():

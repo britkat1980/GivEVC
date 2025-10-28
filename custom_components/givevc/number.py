@@ -5,7 +5,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
 from .const import DOMAIN
-from .helpers import decode_float, decode_signed_16, decode_signed_32
+from .helpers import decode_float, decode_unsigned_32
 
 
 async def async_setup_entry(
@@ -32,8 +32,7 @@ class ModbusNumberEntity(NumberEntity):
         self._scale = config.get("scale", 1.0)
         self._unit = config.get("unit", "")
         self._float = config.get("float", False)
-        self._signed = config.get("signed", False)
-        self._byte_order = config.get("byte_order", "ABCD")
+        self._byte_order = config.get("byte_order", None)
         self._min = config.get("min", 0)
         self._max = config.get("max", 100)
         self._step = config.get("step", 1)
@@ -47,6 +46,7 @@ class ModbusNumberEntity(NumberEntity):
             "name": "GivEVC",
             "manufacturer": "GivEnergy",
             "model": "GivEVC",
+            "serial_number": self.serial,
         }
 
     @property
@@ -79,15 +79,10 @@ class ModbusNumberEntity(NumberEntity):
         try:
             data = self.coordinator.data
             if self._float:
-                val = decode_float(
-                    data[self._register : self._register + 2], self._byte_order
-                )
-            elif self._signed and self._register + 1 < len(data):
-                val = decode_signed_32(
-                    data[self._register : self._register + 2], self._byte_order
-                )
-            elif self._signed:
-                val = decode_signed_16(data[self._register])
+                val = decode_float(data[self._register:self._register+2], self._byte_order)
+            elif self._byte_order:
+                # default assumption: two consecutive registers form an unsigned 32-bit value
+                val = decode_unsigned_32(data[self._register:self._register+2], self._byte_order)
             else:
                 val = data[self._register]
             return round(val * self._scale, 2)
@@ -96,33 +91,37 @@ class ModbusNumberEntity(NumberEntity):
 
     async def async_set_native_value(self, value: float) -> None:
         """Set the value on the device (native units)."""
-        scaled = int(value / self._scale)
-        client = self.coordinator.client
-        unit_id = self.coordinator.unit_id
+        try:
+            scaled = round(value / self._scale)
+            client = self.coordinator.client
 
-        if self._float:
-            raw = struct.pack(">f", value)
-            if self._byte_order == "DCBA":
-                raw = raw[::-1]
-            elif self._byte_order == "BADC":
-                raw = raw[1:2] + raw[0:1] + raw[3:4] + raw[2:3]
-            elif self._byte_order == "CDAB":
-                raw = raw[2:4] + raw[0:2]
-            regs = struct.unpack(">HH", raw)
-            await self.hass.async_add_executor_job(
-                lambda: client.write_registers(self._register, regs, unit=unit_id)
-            )
-        elif self._signed and self._register + 1 < len(self.coordinator.data):
-            raw = struct.pack(">i", scaled)
-            regs = struct.unpack(">HH", raw)
-            await self.hass.async_add_executor_job(
-                lambda: client.write_registers(self._register, regs, unit=unit_id)
-            )
-        else:
-            await self.hass.async_add_executor_job(
-                lambda: client.write_register(self._register, scaled, unit=unit_id)
-            )
+    #        if self._register == 36:
+    #            self._register = 91
+            if self._float:
+                raw = struct.pack(">f", value)
+                if self._byte_order == "DCBA":
+                    raw = raw[::-1]
+                elif self._byte_order == "BADC":
+                    raw = raw[1:2] + raw[0:1] + raw[3:4] + raw[2:3]
+                elif self._byte_order == "CDAB":
+                    raw = raw[2:4] + raw[0:2]
+                regs = struct.unpack(">HH", raw)
+                await self.hass.async_add_executor_job(
+                    lambda: client.write_registers(self._register, regs)
+                )
+            elif self._byte_order:
+                raw = struct.pack(">i", scaled)
+                regs = struct.unpack(">HH", raw)
+                await self.hass.async_add_executor_job(
+                    lambda: client.write_registers(self._register, regs)
+                )
+            else:
+                await self.hass.async_add_executor_job(
+                    lambda: client.write_registers(self._register, [scaled])
+                )
 
-        # Update local cached value and request a coordinator refresh
-        self._value = value
-        await self.coordinator.async_request_refresh()
+            # Update local cached value and request a coordinator refresh
+            self._value = value
+            await self.coordinator.async_request_refresh()
+        except Exception:
+            return None
