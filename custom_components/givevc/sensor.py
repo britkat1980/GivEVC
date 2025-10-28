@@ -1,5 +1,5 @@
 from datetime import datetime
-
+import logging
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -10,6 +10,7 @@ import homeassistant.util.dt as dt_util
 from .const import DOMAIN
 from .helpers import decode_float, decode_unsigned_32
 
+_LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities
@@ -183,3 +184,7 @@ class ModbusTimestampEntity(SensorEntity):
             return dt_val
         except (IndexError, TypeError, KeyError):
             return None
+
+    async def async_update(self):
+        await self.coordinator.async_request_refresh()
+

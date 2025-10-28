@@ -125,3 +125,6 @@ class ModbusNumberEntity(NumberEntity):
             await self.coordinator.async_request_refresh()
         except Exception:
             return None
+        
+    async def async_update(self):
+        await self.coordinator.async_request_refresh()

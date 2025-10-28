@@ -61,3 +61,6 @@ class ModbusSwitchEntity(SwitchEntity):
         client = self.coordinator.client
         unit_id = self.coordinator.unit_id
         await self.hass.async_add_executor_job(client.write_register, self._register, value, unit_id)
+
+    async def async_update(self):
+        await self.coordinator.async_request_refresh()

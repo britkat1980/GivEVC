@@ -96,3 +96,6 @@ class ModbusSelectEntity(SelectEntity):
             self._current_option = option
         except Exception as err:  # pragma: no cover - defensive
             _LOGGER.exception("Failed to set option '%s' for %s: %s", option, self._attr_name, err)
+
+    async def async_update(self):
+        await self.coordinator.async_request_refresh()
