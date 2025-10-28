@@ -1,6 +1,7 @@
 import ipaddress
 import logging
-import socket
+from datetime import datetime,timedelta, timezone
+
 
 from pymodbus.client import ModbusTcpClient
 import voluptuous as vol
@@ -23,6 +24,9 @@ class GivEVCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # Start the scanning coroutine as a background task and pass it
         # to async_show_progress so Home Assistant can track progress and
         # resume the flow when the task is done.
+        self.hass.data.setdefault(DOMAIN, {})
+        self.hass.data[DOMAIN]["scan_start_time"] = datetime.utcnow()
+
         scan_task = self.hass.async_create_task(
             self._scan_subnet_for_modbus(),
             "Scan Modbus subnet",
@@ -38,14 +42,28 @@ class GivEVCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_scan_progress(self, user_input=None):
         # Check the progress task that was created in async_step_scan_start
         progress_task = self.async_get_progress_task()
+        start_time = self.hass.data.get(DOMAIN, {}).get("scan_start_time")
+        timeout = timedelta(seconds=15)  # adjust as needed
 
-        # If no task is registered or task is not done yet, keep showing progress
+        if start_time and datetime.now(timezone.utc) - start_time > timeout:
+            _LOGGER.warning("Modbus scan timed out")
+            return self.async_show_form(
+                step_id="manual",
+                data_schema=vol.Schema({
+                    vol.Required("host"): str,
+                    vol.Required("scan_interval", default=30): vol.All(vol.Coerce(int), vol.Range(min=5, max=3600))
+                }),
+                errors={"base": "scan_timeout"}
+            )
+
         if progress_task is None or not progress_task.done():
             return self.async_show_progress(
                 step_id="scan_progress",
                 progress_action="scan_modbus",
                 progress_task=progress_task,
             )
+
+
 
         # Task finished, pull the result (handle exceptions)
         try:
