@@ -1,0 +1,39 @@
+[
+  {
+    "name": "Temperature",
+    "type": "sensor",
+    "register": 10,
+    "float": true,
+    "scale": 0.1,
+    "unit": "°C",
+    "device_class": "temperature"
+  },
+  {
+    "name": "Setpoint",
+    "type": "number",
+    "register": 12,
+    "float": true,
+    "scale": 1.0,
+    "unit": "°C",
+    "min": 0,
+    "max": 100,
+    "step": 0.5,
+    "mode": "slider"
+  },
+  {
+    "name": "Pump",
+    "type": "switch",
+    "register": 14
+  },
+  {
+    "name": "Fan Mode",
+    "type": "select",
+    "register": 15,
+    "lookup": {
+      "0": "Off",
+      "1": "Low",
+      "2": "Medium",
+      "3": "High"
+    }
+  }
+]
