@@ -144,6 +144,7 @@ class GivEVCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             ip, mask = cidr.split("/")
             network = ipaddress.ip_network(f"{ip}/{mask}", strict=False)
         except Exception as e:
+            _LOGGER.warning(f"Supervisor resp: {resp}")
             _LOGGER.warning(f"Supervisor network info failed: {e}")
 
         # Get subnet from docker if not addon
