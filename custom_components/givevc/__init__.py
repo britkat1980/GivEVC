@@ -22,6 +22,17 @@ def get_map():
     except Exception:
         _LOGGER.debug("Failed loading register_map.json; continuing without it")
 
+async def async_unload_entry(hass, entry):
+    coordinator = hass.data[DOMAIN].get(entry.entry_id)
+    if coordinator:
+        coordinator.shutdown()
+
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, ["sensor", "number", "switch", "select"])
+    if unload_ok:
+        hass.data[DOMAIN].pop(entry.entry_id)
+    return unload_ok
+
+
 async def async_setup_entry(hass, entry):
     """Set up the integration from a config entry.
 

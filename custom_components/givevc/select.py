@@ -1,5 +1,7 @@
 import logging
 
+from pymodbus.client import AsyncModbusTcpClient
+
 from homeassistant.components.select import SelectEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -88,11 +90,13 @@ class ModbusSelectEntity(SelectEntity):
             if value is None:
                 return
 
-            client = self.coordinator.client
-
-            await self.hass.async_add_executor_job(
-                    lambda: client.write_registers(self._register, [value])
-                )
+            #client = self.coordinator.client
+            async with AsyncModbusTcpClient(host=self.coordinator.host, port=502) as client:
+                if not client.connected:
+                    raise ConnectionError("Modbus client failed to connect")
+                success = await client.write_registers(self._register, [value])
+            if success:
+                await self.coordinator.async_request_refresh()
             self._current_option = option
         except Exception as err:  # pragma: no cover - defensive
             _LOGGER.exception("Failed to set option '%s' for %s: %s", option, self._attr_name, err)

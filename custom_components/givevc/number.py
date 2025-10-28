@@ -3,6 +3,8 @@ import struct
 from homeassistant.components.number import NumberEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from pymodbus.client import AsyncModbusTcpClient
+
 
 from .const import DOMAIN
 from .helpers import decode_float, decode_unsigned_32
@@ -93,38 +95,47 @@ class ModbusNumberEntity(NumberEntity):
         """Set the value on the device (native units)."""
         try:
             scaled = round(value / self._scale)
-            client = self.coordinator.client
+            #client = self.coordinator.client
+            async with AsyncModbusTcpClient(host=self.coordinator.host, port=502) as client:
+                if not client.connected:
+                    raise ConnectionError("Modbus client failed to connect")
 
     #        if self._register == 36:
     #            self._register = 91
-            if self._float:
-                raw = struct.pack(">f", value)
-                if self._byte_order == "DCBA":
-                    raw = raw[::-1]
-                elif self._byte_order == "BADC":
-                    raw = raw[1:2] + raw[0:1] + raw[3:4] + raw[2:3]
-                elif self._byte_order == "CDAB":
-                    raw = raw[2:4] + raw[0:2]
-                regs = struct.unpack(">HH", raw)
-                await self.hass.async_add_executor_job(
-                    lambda: client.write_registers(self._register, regs)
-                )
-            elif self._byte_order:
-                raw = struct.pack(">i", scaled)
-                regs = struct.unpack(">HH", raw)
-                await self.hass.async_add_executor_job(
-                    lambda: client.write_registers(self._register, regs)
-                )
-            else:
-                await self.hass.async_add_executor_job(
-                    lambda: client.write_registers(self._register, [scaled])
-                )
+                if self._float:
+                    raw = struct.pack(">f", value)
+                    if self._byte_order == "DCBA":
+                        raw = raw[::-1]
+                    elif self._byte_order == "BADC":
+                        raw = raw[1:2] + raw[0:1] + raw[3:4] + raw[2:3]
+                    elif self._byte_order == "CDAB":
+                        raw = raw[2:4] + raw[0:2]
+                    regs = struct.unpack(">HH", raw)
+                    #await self.hass.async_add_executor_job(
+                    #    lambda: client.write_registers(self._register, regs)
+                    #)
+                    success = await client.write_registers(self._register, regs)
 
+                elif self._byte_order:
+                    raw = struct.pack(">i", scaled)
+                    regs = struct.unpack(">HH", raw)
+
+                    success = await client.write_registers(self._register, regs)
+                    #await self.hass.async_add_executor_job(
+                    #    lambda: client.write_registers(self._register, regs)
+                    #)
+                else:
+                    success = await client.write_registers(self._register, [scaled])
+                    #await self.hass.async_add_executor_job(
+                    #    lambda: client.write_registers(self._register, [scaled])
+                    #)
             # Update local cached value and request a coordinator refresh
             self._value = value
-            await self.coordinator.async_request_refresh()
+            if success:
+                await self.coordinator.async_request_refresh()
+
         except Exception:
             return None
-        
+
     async def async_update(self):
         await self.coordinator.async_request_refresh()

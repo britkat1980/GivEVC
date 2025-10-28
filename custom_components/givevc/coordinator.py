@@ -1,5 +1,5 @@
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
-from pymodbus.client import ModbusTcpClient
+from pymodbus.client import ModbusTcpClient,AsyncModbusTcpClient
 import logging
 from datetime import datetime, timedelta, timezone
 
@@ -9,13 +9,14 @@ _LOGGER = logging.getLogger(__name__)
 
 class ModbusCoordinator(DataUpdateCoordinator):
     def __init__(self, hass, host, port, unit_id, scan_interval, register_count):
-        self.client = ModbusTcpClient(host, port=port)
+        #self.client = ModbusTcpClient(host, port=port)
         self.unit_id = unit_id
         self.register_count = register_count
         self.last_success = True
         self.last_success_time = None
         self.failure_count = 0
         self.total_retries = 0
+        self.host=host
 
         # Ensure update_interval is a timedelta
         update_interval_td = (
@@ -35,15 +36,12 @@ class ModbusCoordinator(DataUpdateCoordinator):
 
     async def _async_update_data(self):
         try:
-            ####### Do I need to make two calls 60 + 55 and combine?
-            result = await self.hass.async_add_executor_job(
-                lambda: self.client.read_holding_registers(
-                    0, count=60)
-            )
-            result2 = await self.hass.async_add_executor_job(
-                lambda: self.client.read_holding_registers(
-                    60, count=55)
-            )
+
+            async with AsyncModbusTcpClient(host=self.host, port=502) as client:
+                if not client.connected:
+                    raise UpdateFailed("Modbus client failed to connect")
+                result  = await client.read_holding_registers(0, count=60)
+                result2 = await client.read_holding_registers(60, count=55)
             if result.isError() or result2.isError():
                 self.last_success = False
                 self.failure_count += 1
@@ -53,9 +51,16 @@ class ModbusCoordinator(DataUpdateCoordinator):
             self.last_success_time = datetime.now(timezone.utc)
             self.failure_count = 0
             allregisters=result.registers + result2.registers
+            _LOGGER.warning("Data collected successfully")
             return allregisters
         except Exception as e:
             self.last_success = False
             self.failure_count += 1
             self.total_retries += 1
-            raise UpdateFailed("Modbus read exception")
+            raise UpdateFailed(f"Modbus read exception - {e}")
+
+    def shutdown(self):
+        if self.client:
+            self.client.close()
+            _LOGGER.info("Modbus client closed")
+
