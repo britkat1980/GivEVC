@@ -18,18 +18,27 @@ class ModbusBlockConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             get_modbus_serial, user_input["host"]
             )
             user_input["serial"] = serial
-
-            return self.async_create_entry(
-                title=f"GivEVC ({serial})" if serial else f"GivEVC @ {user_input['host']}",
-                data=user_input,
-        )
+            if serial:
+                return self.async_create_entry(
+                    title=f"GivEVC ({serial})",
+                    data=user_input,
+                    )
+            else:
+                return self.async_show_form(
+                    step_id="user",
+                    data_schema=vol.Schema({
+                        vol.Required("host"): str,
+                        vol.Required("scan_interval", default=30): vol.All(vol.Coerce(int), vol.Range(min=5, max=3600))
+                    }),
+                    errors={"base": "IP Address is not as valid GivEVC device"}
+                )
 
         found = await scan_subnet_for_modbus(self)
         if found:
             return self.async_show_form(
                 step_id="user",
                 data_schema=vol.Schema({
-                    vol.Required("host"): vol.In(found),
+                    vol.Required("host"): (found),
                     vol.Required("scan_interval", default=30): vol.All(vol.Coerce(int), vol.Range(min=5, max=3600))
                 })
             )
@@ -40,7 +49,7 @@ class ModbusBlockConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Required("host"): str,
                     vol.Required("scan_interval", default=30): vol.All(vol.Coerce(int), vol.Range(min=5, max=3600))
                 }),
-                errors={"base": "no_devices_found"}
+                errors={"base": "No Devices found on subnet, please enter manually"}
             )
 
 def get_modbus_serial(ip):
@@ -69,11 +78,17 @@ async def scan_subnet_for_modbus(self):
         ip = s.getsockname()[0]
         s.close()
         network = ipaddress.ip_network(f"{ip}/24", strict=False)
+        #network = ipaddress.ip_network("192.168.2.1/24", strict=False)
         _LOGGER.warning(f"Network found: {network}")
     except Exception as e:
         _LOGGER.warning(f"Docker network info failed: {e}")
         return []
 
-    evc = []
+    serial = []
     evc=findEVC(network)
-    return evc
+    for ip in evc:
+        serial=get_modbus_serial(evc[ip])
+        if serial:
+            _LOGGER.warning(f"Found GivEVC {serial} at IP: {evc[ip]}")
+            return evc[ip]
+    return []
