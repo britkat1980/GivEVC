@@ -1,10 +1,6 @@
-Absolutely, Mark — here’s a sample README.md for your Modbus Block custom component, designed for clarity, discoverability, and HACS compatibility. You can copy this directly into your repository and tweak it as needed.
+## 📘 GivEVC
 
----
-
-## 📘 Modbus Block
-
-Flexible Modbus integration for Home Assistant using block reads and a JSON-based register map. Supports sensors, numbers, switches, and selects — with float decoding, signed integers, and customizable byte order.
+Simple component to connect to the Givenergy EVC which doesn't rely on an Addon
 
 ---
 
