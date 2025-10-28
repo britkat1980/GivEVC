@@ -1,1 +1,1 @@
-DOMAIN = "modbus_block"
+DOMAIN = "givevc"

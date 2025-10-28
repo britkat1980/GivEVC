@@ -1,13 +1,15 @@
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+
 from .const import DOMAIN
 from .helpers import decode_float, decode_signed_16, decode_signed_32
-import os, json
+
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
     coordinator = hass.data[DOMAIN][entry.entry_id]
     serial = entry.data.get("serial")
+
     register_map = entry.data.get("register_map", [])
 
     entities = [

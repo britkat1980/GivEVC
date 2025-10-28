@@ -1,39 +1,29 @@
 [
   {
-    "name": "Temperature",
+    "name": "Current L1",
     "type": "sensor",
-    "register": 10,
-    "float": true,
+    "register": "6",
+    "float": false,
     "scale": 0.1,
-    "unit": "°C",
-    "device_class": "temperature"
+    "unit": "A",
+    "device_class": "current"
   },
   {
-    "name": "Setpoint",
-    "type": "number",
-    "register": 12,
-    "float": true,
-    "scale": 1.0,
-    "unit": "°C",
-    "min": 0,
-    "max": 100,
-    "step": 0.5,
-    "mode": "slider"
-  },
-  {
-    "name": "Pump",
-    "type": "switch",
-    "register": 14
-  },
-  {
-    "name": "Fan Mode",
+    "name": "Charging State",
     "type": "select",
-    "register": 15,
+    "register": "0",
     "lookup": {
-      "0": "Off",
-      "1": "Low",
-      "2": "Medium",
-      "3": "High"
+      "0": "Unknown state",
+      "1": "idle state",
+      "2": "connection status",
+      "3": "Startup state",
+      "4": "charging status",
+      "5": "Startup failed",
+      "6": "End of charging",
+      "7": "System failure",
+      "8": "Scheduled state",
+      "9": "System upgrade",
+      "10": "Power-on status"
     }
   }
 ]

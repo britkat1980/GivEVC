@@ -1,18 +1,24 @@
+import struct
+
 from homeassistant.components.number import NumberEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+
 from .const import DOMAIN
 from .helpers import decode_float, decode_signed_16, decode_signed_32
-import struct, os, json
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
+
+async def async_setup_entry(
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities
+):
     coordinator = hass.data[DOMAIN][entry.entry_id]
     serial = entry.data.get("serial")
     register_map = entry.data.get("register_map", [])
 
     entities = [
         ModbusNumberEntity(coordinator, config, serial)
-        for config in register_map if config["type"] == "number"
+        for config in register_map
+        if config["type"] == "number"
     ]
     async_add_entities(entities)
 
@@ -41,7 +47,7 @@ class ModbusNumberEntity(NumberEntity):
             "name": "GivEVC",
             "manufacturer": "GivEnergy",
             "model": "GivEVC",
-    }
+        }
 
     @property
     def mode(self):
@@ -68,13 +74,18 @@ class ModbusNumberEntity(NumberEntity):
         return self._step
 
     @property
-    def value(self):
+    def native_value(self):
+        """Return the current value from the coordinator data in native units."""
         try:
             data = self.coordinator.data
             if self._float:
-                val = decode_float(data[self._register:self._register+2], self._byte_order)
+                val = decode_float(
+                    data[self._register : self._register + 2], self._byte_order
+                )
             elif self._signed and self._register + 1 < len(data):
-                val = decode_signed_32(data[self._register:self._register+2], self._byte_order)
+                val = decode_signed_32(
+                    data[self._register : self._register + 2], self._byte_order
+                )
             elif self._signed:
                 val = decode_signed_16(data[self._register])
             else:
@@ -83,7 +94,8 @@ class ModbusNumberEntity(NumberEntity):
         except Exception:
             return None
 
-    async def async_set_value(self, value: float):
+    async def async_set_native_value(self, value: float) -> None:
+        """Set the value on the device (native units)."""
         scaled = int(value / self._scale)
         client = self.coordinator.client
         unit_id = self.coordinator.unit_id
@@ -97,12 +109,20 @@ class ModbusNumberEntity(NumberEntity):
             elif self._byte_order == "CDAB":
                 raw = raw[2:4] + raw[0:2]
             regs = struct.unpack(">HH", raw)
-            await self.hass.async_add_executor_job(client.write_registers, self._register, regs, unit_id)
+            await self.hass.async_add_executor_job(
+                lambda: client.write_registers(self._register, regs, unit=unit_id)
+            )
         elif self._signed and self._register + 1 < len(self.coordinator.data):
             raw = struct.pack(">i", scaled)
             regs = struct.unpack(">HH", raw)
-            await self.hass.async_add_executor_job(client.write_registers, self._register, regs, unit_id)
+            await self.hass.async_add_executor_job(
+                lambda: client.write_registers(self._register, regs, unit=unit_id)
+            )
         else:
-            await self.hass.async_add_executor_job(client.write_register, self._register, scaled, unit_id)
+            await self.hass.async_add_executor_job(
+                lambda: client.write_register(self._register, scaled, unit=unit_id)
+            )
 
+        # Update local cached value and request a coordinator refresh
         self._value = value
+        await self.coordinator.async_request_refresh()

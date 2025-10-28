@@ -1,8 +1,9 @@
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+
 from .const import DOMAIN
-import os, json
+
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
     coordinator = hass.data[DOMAIN][entry.entry_id]
