@@ -137,6 +137,7 @@ class GivEVCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def _scan_subnet_for_modbus(self):
         network={}
         session = aiohttp_client.async_get_clientsession(self.hass)
+        session.headers.add("Bearer", self.hass.data['auth_token'])
         try:
             resp = await session.get("http://supervisor/network/info")
             data = await resp.json()
