@@ -25,7 +25,7 @@ class GivEVCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # to async_show_progress so Home Assistant can track progress and
         # resume the flow when the task is done.
         self.hass.data.setdefault(DOMAIN, {})
-        self.hass.data[DOMAIN]["scan_start_time"] = datetime.utcnow()
+        self.hass.data[DOMAIN]["scan_start_time"] = datetime.now(timezone.utc)
 
         scan_task = self.hass.async_create_task(
             self._scan_subnet_for_modbus(),
