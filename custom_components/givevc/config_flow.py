@@ -135,6 +135,7 @@ class GivEVCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def _scan_subnet_for_modbus(self):
+        network={}
         session = aiohttp_client.async_get_clientsession(self.hass)
         try:
             resp = await session.get("http://supervisor/network/info")
@@ -148,7 +149,7 @@ class GivEVCConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             _LOGGER.warning(f"Supervisor network info failed: {e}")
 
         # Get subnet from docker if not addon
-        if network == None:
+        if not isinstance(network,ipaddress.IPv4Address):
             try:
                 import socket
                 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
