@@ -4,6 +4,8 @@ from homeassistant.components.number import NumberEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from pymodbus.client import AsyncModbusTcpClient
+from homeassistant.util import slugify
+from homeassistant.helpers import entity_registry as er
 
 
 from .const import DOMAIN
@@ -18,7 +20,7 @@ async def async_setup_entry(
     register_map = entry.data.get("register_map", [])
 
     entities = [
-        ModbusNumberEntity(coordinator, config, serial)
+        ModbusNumberEntity(coordinator, config, serial, entry)
         for config in register_map
         if config["type"] == "number"
     ]
@@ -26,11 +28,14 @@ async def async_setup_entry(
 
 
 class ModbusNumberEntity(NumberEntity):
-    def __init__(self, coordinator, config, serial):
+    def __init__(self, coordinator, config, serial, config_entry: ConfigEntry | None = None):
         self.coordinator = coordinator
         self.serial = serial
         self._attr_name = config["name"]
+        self._attr_default_entity_id = f"givevc_{serial}_{slugify(self._attr_name)}"
+        self._attr_unique_id = f"givevc_{serial}_{slugify(self._attr_name)}"
         self._register = config["register"]
+        self._config_entry = config_entry
         self._scale = config.get("scale", 1.0)
         self._unit = config.get("unit", "")
         self._float = config.get("float", False)
@@ -44,7 +49,7 @@ class ModbusNumberEntity(NumberEntity):
     @property
     def device_info(self):
         return {
-            "identifiers": {(DOMAIN, f"givevc_{self.serial}")},
+            "identifiers": {(f"givevc_{self.serial}")},
             "name": "GivEVC",
             "manufacturer": "GivEnergy",
             "model": "GivEVC",
@@ -55,9 +60,17 @@ class ModbusNumberEntity(NumberEntity):
     def mode(self):
         return self._mode
 
-    @property
-    def unique_id(self):
-        return f"{self.serial}_{self._attr_name.lower().replace(' ', '_')}"
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        registry = er.async_get(self.hass)
+        #suggested_object_id = f"givvc_{self.serial}_{slugify(self._attr_name)}"
+        registry.async_get_or_create(
+            domain="sensor",
+            platform=DOMAIN,
+            unique_id=self._attr_default_entity_id,
+            suggested_object_id=self._attr_default_entity_id,
+            config_entry=self._config_entry,
+        )
 
     @property
     def native_unit_of_measurement(self):
@@ -99,9 +112,6 @@ class ModbusNumberEntity(NumberEntity):
             async with AsyncModbusTcpClient(host=self.coordinator.host, port=502) as client:
                 if not client.connected:
                     raise ConnectionError("Modbus client failed to connect")
-
-    #        if self._register == 36:
-    #            self._register = 91
                 if self._float:
                     raw = struct.pack(">f", value)
                     if self._byte_order == "DCBA":
@@ -111,9 +121,6 @@ class ModbusNumberEntity(NumberEntity):
                     elif self._byte_order == "CDAB":
                         raw = raw[2:4] + raw[0:2]
                     regs = struct.unpack(">HH", raw)
-                    #await self.hass.async_add_executor_job(
-                    #    lambda: client.write_registers(self._register, regs)
-                    #)
                     success = await client.write_registers(self._register, regs)
 
                 elif self._byte_order:
@@ -121,15 +128,8 @@ class ModbusNumberEntity(NumberEntity):
                     regs = struct.unpack(">HH", raw)
 
                     success = await client.write_registers(self._register, regs)
-                    #await self.hass.async_add_executor_job(
-                    #    lambda: client.write_registers(self._register, regs)
-                    #)
                 else:
                     success = await client.write_registers(self._register, [scaled])
-                    #await self.hass.async_add_executor_job(
-                    #    lambda: client.write_registers(self._register, [scaled])
-                    #)
-            # Update local cached value and request a coordinator refresh
             self._value = value
             if success:
                 await self.coordinator.async_request_refresh()

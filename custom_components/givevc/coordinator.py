@@ -9,7 +9,6 @@ _LOGGER = logging.getLogger(__name__)
 
 class ModbusCoordinator(DataUpdateCoordinator):
     def __init__(self, hass, host, port, unit_id, scan_interval, register_count):
-        #self.client = ModbusTcpClient(host, port=port)
         self.unit_id = unit_id
         self.register_count = register_count
         self.last_success = True
@@ -51,16 +50,11 @@ class ModbusCoordinator(DataUpdateCoordinator):
             self.last_success_time = datetime.now(timezone.utc)
             self.failure_count = 0
             allregisters=result.registers + result2.registers
-            _LOGGER.warning("Data collected successfully")
+            #_LOGGER.warning("Data collected successfully")
             return allregisters
         except Exception as e:
             self.last_success = False
             self.failure_count += 1
             self.total_retries += 1
             raise UpdateFailed(f"Modbus read exception - {e}")
-
-    def shutdown(self):
-        if self.client:
-            self.client.close()
-            _LOGGER.info("Modbus client closed")
 

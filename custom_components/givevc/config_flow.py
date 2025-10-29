@@ -78,7 +78,6 @@ async def scan_subnet_for_modbus(self):
         ip = s.getsockname()[0]
         s.close()
         network = ipaddress.ip_network(f"{ip}/24", strict=False)
-        #network = ipaddress.ip_network("192.168.2.1/24", strict=False)
         _LOGGER.warning(f"Network found: {network}")
     except Exception as e:
         _LOGGER.warning(f"Docker network info failed: {e}")

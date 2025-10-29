@@ -31,41 +31,39 @@ async def async_setup_entry(
         for config in register_map
         if config.get("type") == "timestamp"
     ]
-    async_add_entities(entities)
+    async_add_entities(entities, update_before_add=True)
 
 
 class ModbusSensorEntity(SensorEntity):
     def __init__(self, coordinator, config, serial, config_entry: ConfigEntry | None = None):
-        self.coordinator = coordinator
+        self._register = config["register"]
+        self.entity_type = "sensor"
         self.serial = serial
         self._attr_name = config["name"]
+        self._attr_default_entity_id = f"givevc_{serial}_{slugify(self._attr_name)}"
+        self._attr_unique_id = f"givevc_{serial}_{slugify(self._attr_name)}"
+        self.coordinator = coordinator
         self._config_entry = config_entry
-        self._register = config["register"]
         self._scale = config.get("scale", 1.0)
         self._unit = config.get("unit", "")
         self._float = config.get("float", False)
         self._byte_order = config.get("byte_order", None)
         self._device_class = config.get("device_class")
         self._lookup = config.get("lookup")
-        # stable unique id used by entity registry
-        self._attr_unique_id = f"givevc_{serial}_{slugify(self._attr_name)}"
-
-        # optionally show device-based names
-        # self._attr_has_entity_name = True
 
     @property
     def device_info(self):
         return {
-            "identifiers": {(DOMAIN, f"givevc_{self.serial}")},
+            "identifiers": {(f"givevc_{self.serial}")},
             "name": "GivEVC",
             "manufacturer": "GivEnergy",
             "model": "GivEVC",
             "serial_number": self.serial,
         }
 
-    @property
-    def unique_id(self):
-        return self._attr_unique_id
+    #@property
+    #def unique_id(self):
+    #    return self._attr_unique_id
 
     async def async_added_to_hass(self) -> None:
         """Register suggested object id in entity registry so entity_id includes the serial."""
@@ -76,8 +74,8 @@ class ModbusSensorEntity(SensorEntity):
         registry.async_get_or_create(
             domain="sensor",
             platform=DOMAIN,
-            unique_id=self._attr_unique_id,
-            suggested_object_id=suggested_object_id,
+            unique_id=self._attr_default_entity_id,
+            suggested_object_id=self._attr_default_entity_id,
             config_entry=self._config_entry,
         )
 
@@ -131,31 +129,32 @@ class ModbusTimestampEntity(SensorEntity):
         self._register_minute = config.get("register_minute")
         self._register_second = config.get("register_second")
         self._attr_device_class = SensorDeviceClass.TIMESTAMP
-        self._attr_unique_id = f"givevc_{serial}_{slugify(self._attr_name)}_timestamp"
+        self._attr_default_entity_id = f"givevc_{serial}_{slugify(self._attr_name)}"
+        self._attr_unique_id = f"givevc_{serial}_{slugify(self._attr_name)}"
 
     @property
     def device_info(self):
         return {
-            "identifiers": {(DOMAIN, f"givevc_{self.serial}")},
+            "identifiers": {(f"givevc_{self.serial}")},
             "name": "GivEVC",
             "manufacturer": "GivEnergy",
             "model": "GivEVC",
             "serial_number": self.serial,
         }
 
-    @property
-    def unique_id(self):
-        return self._attr_unique_id
+    #@property
+    #def unique_id(self):
+    #    return self._attr_unique_id
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
         registry = er.async_get(self.hass)
-        suggested_object_id = f"givvc_{self.serial}_{slugify(self._attr_name)}_ts"
+        suggested_object_id = f"givvc_{self.serial}_{slugify(self._attr_name)}"
         registry.async_get_or_create(
             domain="sensor",
             platform=DOMAIN,
-            unique_id=self._attr_unique_id,
-            suggested_object_id=suggested_object_id,
+            unique_id=self._attr_default_entity_id,
+            suggested_object_id=self._attr_default_entity_id,
             config_entry=self._config_entry,
         )
 
